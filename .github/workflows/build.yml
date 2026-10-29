@@ -692,7 +692,7 @@ jobs:
                       override fun onCreateWindow(
                           view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message
                       ): Boolean {
-                          openPopup(resultMsg)
+                          return openPopup(resultMsg)
                       }
 
                       override fun onCloseWindow(window: WebView?) {
