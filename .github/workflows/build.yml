@@ -15,8 +15,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: 安装 Android SDK
-        uses: android-actions/setup-android@v3
+      - name: 安装 Android SDK 工具
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
 
       - name: 安装 SDK 平台与构建工具
         run: |
