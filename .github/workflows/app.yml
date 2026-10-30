@@ -1,0 +1,75 @@
+name: Build APK
+
+on: [push, workflow_dispatch]
+
+env:
+  # ============ 换项目时只需改这里 ============
+  ANDROID_PLATFORM: 'android-34'        # 与 sources.txt 中的 compileSdk = 34 对应
+  ANDROID_BUILD_TOOLS: '34.0.0'
+  GRADLE_VERSION: '8.7'                 # 必须与 sources.txt 中的 AGP 版本兼容
+  ARTIFACT_NAME: 'AIWebShell-APK'       # 下载时的压缩包名
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 安装 JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 安装 Android SDK 工具
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
+      - name: 安装 SDK 平台与构建工具
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platforms;$ANDROID_PLATFORM" "build-tools;$ANDROID_BUILD_TOOLS" > /dev/null
+
+      - name: 安装 Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: 从 sources.txt 展开项目文件
+        run: |
+          python3 << 'PYEOF'
+          import os, re
+
+          with open('sources.txt', encoding='utf-8') as f:
+              text = f.read()
+
+          marks = list(re.finditer(r'^##### FILE: (.+?) #####$', text, re.M))
+          if not marks:
+              raise SystemExit('sources.txt 中没有找到任何文件标记')
+
+          for i, m in enumerate(marks):
+              path = m.group(1).strip()
+              start = m.end()
+              end = marks[i + 1].start() if i + 1 < len(marks) else len(text)
+              body = text[start:end].strip('\n') + '\n'
+              d = os.path.dirname(path)
+              if d:
+                  os.makedirs(d, exist_ok=True)
+              with open(path, 'w', encoding='utf-8') as out:
+                  out.write(body)
+              print('生成:', path)
+
+          print('完成，共', len(marks), '个文件')
+          PYEOF
+
+      - name: 编译 APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: 上传 APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: app/build/outputs/apk/debug/app-debug.apk
